@@ -1,9 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 	"noteIt/api/models"
@@ -18,142 +17,108 @@ var notes = []models.Note{
 }
 
 func main() {
-	fmt.Println("Hello world!")
+	fmt.Println("Starting server...")
 
-	http.HandleFunc("/home", Home)
-	http.HandleFunc("/notes", GetNotes)
-	http.HandleFunc("/note", GetNote)
-	http.HandleFunc("/create/note", CreateNote)
-	http.HandleFunc("/update/note", UpdateNote)
-	http.HandleFunc("/delete/notes", DeleteAllNotes)
-	http.HandleFunc("/delete/note", DeleteNote)
+	router := gin.Default()
+	router.SetTrustedProxies(nil)
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	router.GET("/home", Home)
+	router.GET("/notes", GetNotes)
+	router.GET("/note/:id", GetNote)
+	router.POST("/create/note", CreateNote)
+	router.PUT("/update/note/:id", UpdateNote)
+	router.DELETE("/delete/notes", DeleteAllNotes)
+	router.DELETE("/delete/note", DeleteNote)
+
+	log.Fatal(router.Run("localhost:8080"))
 }
 
-func Home(wr http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(wr, "Home page")
+func Home(ctx *gin.Context) {
+	ctx.IndentedJSON(http.StatusOK, map[string]string{"message": "Home page"})
 }
 
-func GetNotes(wr http.ResponseWriter, r *http.Request) {
-	value, err := json.Marshal(&notes)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	wr.WriteHeader(http.StatusOK)
-	fmt.Fprint(wr, string(value))
+func GetNotes(ctx *gin.Context) {
+	ctx.IndentedJSON(http.StatusOK, notes)
 }
 
-func GetNote(wr http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-
-	var note models.Note
+func GetNote(ctx *gin.Context) {
+	id := ctx.Query("id")
 
 	for _, v := range notes {
 		if strconv.Itoa(v.ID) == id {
-			note = v
+			ctx.IndentedJSON(http.StatusOK, v)
+			return
 		}
 	}
 
-	value, err := json.Marshal(&note)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	wr.WriteHeader(http.StatusOK)
-	fmt.Fprint(wr, string(value))
+	ctx.IndentedJSON(http.StatusNotFound, gin.H{"message": "Note not found"})
 }
 
-func CreateNote(wr http.ResponseWriter, r *http.Request) {
+func CreateNote(ctx *gin.Context) {
 	var newNote models.Note
 
-	body, err := ioutil.ReadAll(r.Body)
+	err := ctx.BindJSON(&newNote)
 	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	err = json.Unmarshal(body, &newNote)
-	if err != nil {
-		log.Fatal(err.Error())
 		return
 	}
 
 	notes = append(notes, newNote)
-	notes, err := json.Marshal(&notes)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
 
-	wr.WriteHeader(http.StatusCreated)
-	fmt.Fprint(wr, string(notes))
+	ctx.IndentedJSON(http.StatusCreated, notes)
 }
 
-func UpdateNote(wr http.ResponseWriter, r *http.Request) {
-	var newNote models.Note
+func UpdateNote(ctx *gin.Context) {
+	var updatedNote models.Note
 
-	id := r.URL.Query().Get("id")
+	id := ctx.Query("id")
 
-	body, err := ioutil.ReadAll(r.Body)
+	err := ctx.BindJSON(&updatedNote)
 	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	err = json.Unmarshal(body, &newNote)
-	if err != nil {
-		log.Fatal(err.Error())
 		return
 	}
 
 	for i, v := range notes {
 		if strconv.Itoa(v.ID) == id {
 			v = models.Note{
-				ID:          newNote.ID,
-				Title:       newNote.Title,
-				Description: newNote.Description,
+				ID:          updatedNote.ID,
+				Title:       updatedNote.Title,
+				Description: updatedNote.Description,
 			}
 
 			notes = append(notes[:i], v)
 		}
 	}
 
-	wr.WriteHeader(http.StatusCreated)
-	fmt.Fprint(wr, notes)
+	ctx.IndentedJSON(http.StatusCreated, notes)
 }
 
-func DeleteAllNotes(wr http.ResponseWriter, r *http.Request) {
+func DeleteAllNotes(ctx *gin.Context) {
 	notes = notes[:0]
 
-	body, err := json.Marshal(notes)
+	err := ctx.BindJSON(&notes)
 	if err != nil {
-		log.Fatal(err.Error())
+		ctx.IndentedJSON(http.StatusNoContent, map[string]string{"error": err.Error()})
 		return
 	}
 
-	fmt.Fprint(wr, string(body))
+	ctx.IndentedJSON(http.StatusNoContent, notes)
 }
 
-func DeleteNote(wr http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
+func DeleteNote(ctx *gin.Context) {
+	id := ctx.Query("id")
 
 	for i, v := range notes {
 		if strconv.Itoa(v.ID) == id {
 			notes = append(notes[:i], notes[i+1:]...)
+			return
 		}
 	}
 
-	wr.WriteHeader(http.StatusNoContent)
-
-	resp, err := json.Marshal(notes)
+	err := ctx.BindJSON(&notes)
 	if err != nil {
-		log.Fatal(err.Error())
+		ctx.IndentedJSON(http.StatusNoContent, map[string]string{"error": err.Error()})
 		return
 	}
 
-	fmt.Fprint(wr, resp)
+	ctx.IndentedJSON(http.StatusNoContent, notes)
 }
