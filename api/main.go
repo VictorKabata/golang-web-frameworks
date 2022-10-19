@@ -42,6 +42,7 @@ func GetNotes(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	wr.Header().Set("Content-Type", "application/json")
 	wr.WriteHeader(http.StatusOK)
 	fmt.Fprint(wr, string(value))
 }
@@ -63,6 +64,7 @@ func GetNote(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	wr.Header().Set("Content-Type", "application/json")
 	wr.WriteHeader(http.StatusOK)
 	fmt.Fprint(wr, string(value))
 }
@@ -89,6 +91,7 @@ func CreateNote(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	wr.Header().Set("Content-Type", "application/json")
 	wr.WriteHeader(http.StatusCreated)
 	fmt.Fprint(wr, string(notes))
 }
@@ -122,6 +125,7 @@ func UpdateNote(wr http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	wr.Header().Set("Content-Type", "application/json")
 	wr.WriteHeader(http.StatusCreated)
 	fmt.Fprint(wr, notes)
 }
@@ -135,6 +139,8 @@ func DeleteAllNotes(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	wr.Header().Set("Content-Type", "application/json")
+	wr.WriteHeader(http.StatusNoContent)
 	fmt.Fprint(wr, string(body))
 }
 
@@ -155,5 +161,7 @@ func DeleteNote(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	wr.Header().Set("Content-Type", "application/json")
+	wr.WriteHeader(http.StatusNoContent)
 	fmt.Fprint(wr, resp)
 }
