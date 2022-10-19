@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -18,21 +19,23 @@ var notes = []models.Note{
 }
 
 func main() {
-	fmt.Println("Hello world!")
+	fmt.Println("Starting server...")
 
-	http.HandleFunc("/home", Home)
-	http.HandleFunc("/notes", GetNotes)
-	http.HandleFunc("/note", GetNote)
-	http.HandleFunc("/create/note", CreateNote)
-	http.HandleFunc("/update/note", UpdateNote)
-	http.HandleFunc("/delete/notes", DeleteAllNotes)
-	http.HandleFunc("/delete/note", DeleteNote)
+	router := mux.NewRouter()
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	router.HandleFunc("/", Home)
+	router.HandleFunc("/notes", GetNotes).Methods("GET")
+	router.HandleFunc("/note", GetNote).Methods("POST")
+	router.HandleFunc("/create/note", CreateNote).Methods("POST")
+	router.HandleFunc("/update/note", UpdateNote).Methods("PATCH")
+	router.HandleFunc("/delete/notes", DeleteAllNotes).Methods("DELETE")
+	router.HandleFunc("/delete/note", DeleteNote).Methods("DELETE")
+
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
 func Home(wr http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(wr, "Home page")
+	fmt.Fprint(wr, "Home endpoint")
 }
 
 func GetNotes(wr http.ResponseWriter, r *http.Request) {
@@ -90,7 +93,7 @@ func CreateNote(wr http.ResponseWriter, r *http.Request) {
 	}
 
 	wr.WriteHeader(http.StatusCreated)
-	fmt.Fprint(wr, string(notes))
+	json.NewEncoder(wr).Encode(notes)
 }
 
 func UpdateNote(wr http.ResponseWriter, r *http.Request) {
@@ -155,5 +158,5 @@ func DeleteNote(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprint(wr, resp)
+	fmt.Fprint(wr, string(resp))
 }
