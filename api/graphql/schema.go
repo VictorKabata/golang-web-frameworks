@@ -1,0 +1,5 @@
+package graphql
+
+func schema() {
+
+}

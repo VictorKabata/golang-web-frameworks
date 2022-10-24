@@ -3,11 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"github.com/graphql-go/graphql"
 	"log"
-	"net/http"
 	"noteIt/api/models"
-	"strconv"
 )
 
 /**Mock database*/
@@ -18,142 +16,58 @@ var notes = []models.Note{
 }
 
 func main() {
-	fmt.Println("Hello world!")
+	fmt.Println("Starting server...")
 
-	http.HandleFunc("/home", Home)
-	http.HandleFunc("/notes", GetNotes)
-	http.HandleFunc("/note", GetNote)
-	http.HandleFunc("/create/note", CreateNote)
-	http.HandleFunc("/update/note", UpdateNote)
-	http.HandleFunc("/delete/notes", DeleteAllNotes)
-	http.HandleFunc("/delete/note", DeleteNote)
+	fields := graphql.Fields{
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+		"home": &graphql.Field{
+			Type: graphql.String,
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				return "home", nil
+			},
+		},
+	}
+
+	rootQuery := graphql.ObjectConfig{
+		Name:   "RootQuery",
+		Fields: fields,
+	}
+
+	schemaConfig := graphql.SchemaConfig{Query: graphql.NewObject(rootQuery)}
+	schema, err := graphql.NewSchema(schemaConfig)
+	if err != nil {
+		log.Fatalf("Failed to create graphql schema: %v", err)
+	}
+
+	query := `{
+home
+}`
+
+	params := graphql.Params{Schema: schema, RequestString: query}
+	r := graphql.Do(params)
+	if len(r.Errors) > 0 {
+		log.Fatalf("Error")
+	}
+
+	rJson, _ := json.Marshal(r)
+	fmt.Printf("Response: %s\n", rJson)
 }
 
-func Home(wr http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(wr, "Home page")
-}
-
-func GetNotes(wr http.ResponseWriter, r *http.Request) {
-	value, err := json.Marshal(&notes)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	wr.WriteHeader(http.StatusOK)
-	fmt.Fprint(wr, string(value))
-}
-
-func GetNote(wr http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-
-	var note models.Note
-
-	for _, v := range notes {
-		if strconv.Itoa(v.ID) == id {
-			note = v
-		}
-	}
-
-	value, err := json.Marshal(&note)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	wr.WriteHeader(http.StatusOK)
-	fmt.Fprint(wr, string(value))
-}
-
-func CreateNote(wr http.ResponseWriter, r *http.Request) {
-	var newNote models.Note
-
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	err = json.Unmarshal(body, &newNote)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	notes = append(notes, newNote)
-	notes, err := json.Marshal(&notes)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	wr.WriteHeader(http.StatusCreated)
-	fmt.Fprint(wr, string(notes))
-}
-
-func UpdateNote(wr http.ResponseWriter, r *http.Request) {
-	var newNote models.Note
-
-	id := r.URL.Query().Get("id")
-
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	err = json.Unmarshal(body, &newNote)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	for i, v := range notes {
-		if strconv.Itoa(v.ID) == id {
-			v = models.Note{
-				ID:          newNote.ID,
-				Title:       newNote.Title,
-				Description: newNote.Description,
-			}
-
-			notes = append(notes[:i], v)
-		}
-	}
-
-	wr.WriteHeader(http.StatusCreated)
-	fmt.Fprint(wr, notes)
-}
-
-func DeleteAllNotes(wr http.ResponseWriter, r *http.Request) {
-	notes = notes[:0]
-
-	body, err := json.Marshal(notes)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	fmt.Fprint(wr, string(body))
-}
-
-func DeleteNote(wr http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-
-	for i, v := range notes {
-		if strconv.Itoa(v.ID) == id {
-			notes = append(notes[:i], notes[i+1:]...)
-		}
-	}
-
-	wr.WriteHeader(http.StatusNoContent)
-
-	resp, err := json.Marshal(notes)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-
-	fmt.Fprint(wr, resp)
-}
+var sandboxHTML = []byte(`
+<!DOCTYPE html>
+<html lang="en">
+<body style="margin: 0; overflow-x: hidden; overflow-y: hidden">
+<div id="sandbox" style="height:100vh; width:100vw;"></div>
+<script src="https://embeddable-sandbox.cdn.apollographql.com/_latest/embeddable-sandbox.umd.production.min.js"></script>
+<script>
+new window.EmbeddedSandbox({
+  target: "#sandbox",
+  // Pass through your server href if you are embedding on an endpoint.
+  // Otherwise, you can pass whatever endpoint you want Sandbox to start up with here.
+  initialEndpoint: "http://localhost:8080/graphql",
+});
+// advanced options: https://www.apollographql.com/docs/studio/explorer/sandbox#embedding-sandbox
+</script>
+</body>
+ 
+</html>`)
