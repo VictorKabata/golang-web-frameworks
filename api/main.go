@@ -6,27 +6,30 @@ import (
 	"github.com/graphql-go/handler"
 	"log"
 	"net/http"
+	"time"
 )
 
 type Note struct {
-	ID          int    `json: "ID"`
+	ID          int    `json: "id"`
 	Title       string `json: "title"`
 	Description string `json: "description"`
+	Created_At  string `json: "created_at"`
 }
 
 /**Mock database*/
 var notes = []Note{
-	{1, "Title 1", "Description 1"},
-	{2, "Title 2", "Description 2"},
-	{3, "Title 3", "Description 3"},
+	{1, "Title 1", "Description 1", time.Now().UTC().String()},
+	{2, "Title 2", "Description 2", time.Now().UTC().String()},
+	{3, "Title 3", "Description 3", time.Now().UTC().String()},
 }
 
 func main() {
-	fmt.Println("Starting server...")
+	fmt.Println("Starting graphql server...")
 
 	noteType := graphql.NewObject(
 		graphql.ObjectConfig{
-			Name: "Note",
+			Name:        "Note",
+			Description: "User generated note",
 			Fields: graphql.Fields{
 				"id": &graphql.Field{
 					Type: graphql.Int,
@@ -37,6 +40,10 @@ func main() {
 				"description": &graphql.Field{
 					Type: graphql.String,
 				},
+				"created_at": &graphql.Field{
+					Type: graphql.String,
+				},
+				// Addition fields
 			},
 		},
 	)
@@ -44,11 +51,12 @@ func main() {
 	fields := graphql.Fields{
 
 		"note": &graphql.Field{
+			Name:        "Get note by ID",
 			Type:        noteType,
 			Description: "Get note by ID",
 			Args:        graphql.FieldConfigArgument{"id": &graphql.ArgumentConfig{Type: graphql.Int}},
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				id, isOkay := p.Args["id"].(int)
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+				id, isOkay := params.Args["id"].(int)
 				if isOkay {
 					for _, note := range notes {
 						if note.ID == id {
@@ -61,9 +69,10 @@ func main() {
 		},
 
 		"notes": &graphql.Field{
+			Name:        "Get all notes",
 			Type:        graphql.NewList(noteType),
 			Description: "Get list of all notes",
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 				return notes, nil
 			},
 		},
@@ -87,8 +96,7 @@ func main() {
 	})
 
 	http.Handle("/graphql", handler)
-	http.Handle("/sandbox", http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) { w.Write(sandboxHTML) }))
+	http.Handle("/sandbox", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(sandboxHTML) }))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
