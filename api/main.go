@@ -1,15 +1,21 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/handler"
 	"log"
-	"noteIt/api/models"
+	"net/http"
 )
 
+type Note struct {
+	ID          int    `json: "ID"`
+	Title       string `json: "title"`
+	Description string `json: "description"`
+}
+
 /**Mock database*/
-var notes = []models.Note{
+var notes = []Note{
 	{1, "Title 1", "Description 1"},
 	{2, "Title 2", "Description 2"},
 	{3, "Title 3", "Description 3"},
@@ -18,12 +24,47 @@ var notes = []models.Note{
 func main() {
 	fmt.Println("Starting server...")
 
+	noteType := graphql.NewObject(
+		graphql.ObjectConfig{
+			Name: "Note",
+			Fields: graphql.Fields{
+				"id": &graphql.Field{
+					Type: graphql.Int,
+				},
+				"title": &graphql.Field{
+					Type: graphql.String,
+				},
+				"description": &graphql.Field{
+					Type: graphql.String,
+				},
+			},
+		},
+	)
+
 	fields := graphql.Fields{
 
-		"home": &graphql.Field{
-			Type: graphql.String,
+		"note": &graphql.Field{
+			Type:        noteType,
+			Description: "Get note by ID",
+			Args:        graphql.FieldConfigArgument{"id": &graphql.ArgumentConfig{Type: graphql.Int}},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				return "home", nil
+				id, isOkay := p.Args["id"].(int)
+				if isOkay {
+					for _, note := range notes {
+						if note.ID == id {
+							return note, nil
+						}
+					}
+				}
+				return nil, nil
+			},
+		},
+
+		"notes": &graphql.Field{
+			Type:        graphql.NewList(noteType),
+			Description: "Get list of all notes",
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				return notes, nil
 			},
 		},
 	}
@@ -39,18 +80,18 @@ func main() {
 		log.Fatalf("Failed to create graphql schema: %v", err)
 	}
 
-	query := `{
-home
-}`
+	handler := handler.New(&handler.Config{
+		Schema:   &schema,
+		Pretty:   true,
+		GraphiQL: false,
+	})
 
-	params := graphql.Params{Schema: schema, RequestString: query}
-	r := graphql.Do(params)
-	if len(r.Errors) > 0 {
-		log.Fatalf("Error")
-	}
+	http.Handle("/graphql", handler)
+	http.Handle("/sandbox", http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) { w.Write(sandboxHTML) }))
 
-	rJson, _ := json.Marshal(r)
-	fmt.Printf("Response: %s\n", rJson)
+	log.Fatal(http.ListenAndServe(":8080", nil))
+
 }
 
 var sandboxHTML = []byte(`
