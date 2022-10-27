@@ -1,2 +1,2 @@
-# NoteIt
- Golang server project playground
+# golang-web-frameworks
+ Golang Playground for Web Frameworks
